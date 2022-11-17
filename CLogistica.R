@@ -57,13 +57,13 @@ CopLog<-function(n){ #n es el parámetro del tamaño de simulaciones, matriz res
    df<-as.data.frame(df)
    
    pl <- plot_ly(df, x = ~u, y = ~v, z = ~c)
-   pl <- pl %>% add_markers()
-   pl <- pl %>% layout(scene = list(xaxis = list(title = 'U'),
+   pl <- pl %>% add_markers(marker=list(size=2,color = ~c, colorscale = c('#FFE1A1', '#683531'), showscale = TRUE))
+   pl <- pl %>% layout(title="Copula Logistica",scene = list(xaxis = list(title = 'U'),
                                       yaxis = list(title = 'V'),
                                       zaxis = list(title = 'C(u,v)')))
    
    pl
    
 }
-CopLog(100)
+CopLog(5000)
 
