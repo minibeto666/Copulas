@@ -14,6 +14,7 @@ library(VGAM)
 library(lcopula)
 library(VC2copula)
 library(scatterplot3d)
+library(cvar)
 
 # Cargamos la serie de datos
 cartera=c("KOFUBL.MX","WALMEX.MX")
@@ -151,7 +152,7 @@ K.plot(valores)
 
 ############################### Construccion de la copula
 
-copula<-VC2copula::surGumbelCopula(param = 1.15)
+copula<-surGumbelCopula(param = 1.15)
 
 
 ############################### Construccion de la funcion de distribucion conjunta
@@ -177,7 +178,7 @@ cdf<-pMvdc(z,DistConj)
 scatterplot3d(z[,1],z[,2],cdf,highlight.3d=T)
 
 
-# gofCopula para pruebas de bondad de ajuste
+# gofCopula para pruebas de bondad de ajuste no se puede con surv gumbel
 
 gofCopula(copula = copula,x=valores) # p-value de 0.6239
 
@@ -188,21 +189,21 @@ gofCopula(copulaprueba,valores) # p-value de 0.001499
 
 
 ###########################################################################################  
-# Simulacion de rendimientosy obtención del VaR
+# Simulacion de rendimientosy obtenciï¿½n del VaR
 
 VaR95<-data.frame()
 tVaR95<-data.frame()  
-library(cvar)  
 
 
-for(i in 1:5){ # Este "for" corresponde al numero de simulaciones, tarda mucho tiempo, se puede correr una sola simulacion para ver los resultados rapidos
+
+for(i in 1:10){ # Este "for" corresponde al numero de simulaciones, tarda mucho tiempo, se puede correr una sola simulacion para ver los resultados rapidos
   
   rendimientos_sim<-data.frame()
   
   
   for(k in 1:2){# Crear bien el for
-    for(j in 1:nrow(tabla_rendimientos)){
-      rendimientos_sim[j,k]<-rMvdc(n=nrow(tabla_rendimientos),DistConj)[j,k]
+    for(j in 1:nrow(tablar)){
+      rendimientos_sim[j,k]<-rMvdc(n=nrow(tablar),DistConj)[j,k]
     }
   } 
   
@@ -242,7 +243,7 @@ for(i in 1:5){ # Este "for" corresponde al numero de simulaciones, tarda mucho t
   
   
   #####################################################################################  
-  # Todo lo que está abajo se hzi para calcular el VaR y ES de forma manual
+  # Todo lo que estï¿½ abajo se hzi para calcular el VaR y ES de forma manual
   # Calculamos el tVaR
   
   
@@ -278,7 +279,7 @@ for(i in 1:5){ # Este "for" corresponde al numero de simulaciones, tarda mucho t
   #    Tabla_Alisado1<-cbind(Tabla_Alisado1,Fx)
   #    head(Tabla_Alisado1,5)
   
-  #Guardamos las observaciones mayores que estén por arriba del 95%
+  #Guardamos las observaciones mayores que estï¿½n por arriba del 95%
   #    tabla_emisora1_95<-Tabla_Alisado1[which(Tabla_Alisado1$Fx>=0.95),] # Guarda todos los valores mayores a 0.95
   
   # VaR al 95% (1 dia)
@@ -303,11 +304,9 @@ for(i in 1:5){ # Este "for" corresponde al numero de simulaciones, tarda mucho t
   }
   
   
-  
-  
 }
-colnames(VaR95)<-c("TSLA","AAPL")
-colnames(tVaR95)<-c("TSLA","AAPL")  
+colnames(VaR95)<-c("KOFUBL","WALMEX")
+colnames(tVaR95)<-c("KOFUBL","WALMEX")  
 
 
 # VaR y tVaR
@@ -316,3 +315,69 @@ colMeans(tVaR95)
 
 #table<-rbind("VaR al 95%", "tVaR al 95%")  
 #table<-cbind(colMeans(VaR95),colMeans(tVaR_95))  
+
+###################################################################################
+#Nuevo For Mas chingon 
+###################################################################################
+
+#Hallamos VaR y tVaR
+
+
+VaR_df<-data.frame()
+tVaR_df<-data.frame()
+
+for(k in 1:100){ #numero de veces que se calcularan los VaR y tVaR para sacarles promedio
+
+nsims<-1000 #numero de simulaciones sobre las cuales hace P&L
+
+sim_rend<-data.frame()
+
+sim_rend<- rMvdc(n=nsims,DistConj) #x y y sim con la copula
+
+#calculamos reevaluacion
+reev_sim<-data.frame()
+
+for(j in 1:2){
+  
+  for( i in 1:nrow(sim_rend)){
+    reev_sim[i,j]<-ultimo_precio[1,j]*(1+sim_rend[i,j])
+  }#i
+  
+}#j
+
+#calculamos P&L
+
+PL_sim<-data.frame()
+
+for (j in 1:2){
+  
+  for(i in 1:nrow(reev_sim)){
+    
+    PL_sim[i,j]<-ultimo_precio[1,j]-reev_sim[i,j]
+  }#i
+}#j
+
+#aÃ±adimos PL del portafolio
+
+PL_port<-apply(PL_sim,1,sum) #V1=Kof, V2=Wal
+
+PL_sim<-cbind(PL_sim,PL_port)
+
+#Calculamos VaR 95 y tVaR 95
+
+VaR95port<-apply(PL_sim,2,quantile,probs=.95)
+tVaR95port<-apply(PL_sim,2,ES,p_loss=.05) 
+
+VaR_df[k,1]<-VaR95port[1]
+VaR_df[k,2]<-VaR95port[2]
+VaR_df[k,3]<-VaR95port[3]
+
+tVaR_df[k,1]<-tVaR95port[1]
+tVaR_df[k,2]<-tVaR95port[2]
+tVaR_df[k,3]<-tVaR95port[3]
+
+}#k
+
+# VaR y tVaR
+colMeans(VaR_df)
+colMeans(tVaR_df) #al toque papiii
